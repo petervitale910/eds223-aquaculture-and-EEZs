@@ -1,0 +1,150 @@
+---
+title: "Aquaculture and EEZ's"
+author: 'Peter Vitale'
+date: '11/10/25'
+format: html
+editor: visual
+execute: 
+  cache: true
+  warning: false
+  message: false
+---
+
+In this project we will :
+
+-   
+
+-   
+
+-   
+
+-   
+
+I'm going to start by loading in the necessary packages
+
+```{r}
+pacman::p_load('tidyverse', 
+               'sf', 
+               'here',
+               'janitor',
+               'tmap', 
+               'kableExtra',
+               'patchwork',
+               'ggthemes',
+               'colorRamps',
+               'stars',
+               'terra')
+```
+
+In this project I am working with multiple datasets that may have different crs's. I am going to be using a function to check the crs's matching
+
+```{r}
+
+```
+
+## Data import
+
+### Surface temperature
+```{r}
+sst_2008 <- rast(here('data',
+                      'average_annual_sst_2008.tif'))
+sst_2009 <- rast(here('data',
+                      'average_annual_sst_2009.tif'))
+sst_2010 <- rast(here('data',
+                      'average_annual_sst_2010.tif'))
+sst_2011 <- rast(here('data',
+                      'average_annual_sst_2011.tif'))
+sst_2012 <- rast(here('data',
+                      'average_annual_sst_2012.tif'))
+```
+
+### Bathymetry 
+
+```{r}
+bathy <- rast(here('data','depth.tif'))
+```
+
+### Exclusive Economic Zones
+```{r}
+eez <- st_read(here('data',
+                    'wc_regions_clean.shp'), quiet = TRUE)
+        
+```
+
+## Surface temperature mean 
+```{r}
+# Stacked raster
+stacked_sst <- c(sst_2008, sst_2009, sst_2010, sst_2011, sst_2012)
+
+# Take mean of stacked raster and transfer from celcius to kelvin
+mean_sst <- mean(stacked_sst) - 273.15
+```
+
+## Bathymetry 
+```{r}
+# First we need to assure this data is in the same crs as sst
+depth_projected <- project(bathy, mean_sst)
+
+crs(depth_projected) == crs(mean_sst)
+
+# We are going to crop the depth raster to the eez
+depth_cropped <- crop(depth_projected, mean_sst)
+
+# And resample to make sure our pixel sizes match 
+depth_resampled <- resample(depth_projected, mean_sst)
+```
+
+## Oyster Reclassification 
+
+We need to reclassify for oysters, which enjoy depth between -70 meters and 0 meters and temperatures between 11 and 30 degrees celcius 
+```{r}
+rcl_depth <- matrix(c(-Inf, -70, 0,
+                    -70, 0, 1,
+                    0, Inf, 0), 
+                    nrow = 3, 
+                    byrow = TRUE)
+
+rcl_temp <- matrix(c(-Inf, 11, 0,
+                     11, 30, 1,
+                     30, Inf, 0), 
+                   nrow =3,
+                   byrow = TRUE)
+
+depth_rcl <- classify(depth_resampled, rcl_depth)
+
+sst_rcl <- classify(mean_sst, rcl_temp)
+```
+
+We want to keep where both sst and depth equal one, so we can multiply the two rasters. 
+
+```{r}
+suitable_cells <- sst_rcl * depth_rcl
+```
+
+Now we have suitable cells for the raster and can mask the eez
+
+```{r}
+# First lets update the crs of the eez to match our suitable cells 
+eez_crs <- st_transform(eez, crs(suitable_cells))
+
+st_crs(eez_crs) == crs(suitable_cells)
+```
+And now we can mask the data with our eez
+
+```{r}
+oyster_mask <- mask(suitable_cells, eez_crs)
+
+oyster_mask[oyster_mask == 0] <- NA
+```
+
+
+```{r}
+oyster_aq <- extract(oyster_mask, eez_crs, fun = 'notNA') %>% 
+  mutate(region = eez$rgn)
+```
+
+references: 
+
+https://wildlife.ca.gov/Conservation/Marine/Kelp 0-40 m 
+
+https://pubmed.ncbi.nlm.nih.gov/37497792/ 10-18 degrees c
