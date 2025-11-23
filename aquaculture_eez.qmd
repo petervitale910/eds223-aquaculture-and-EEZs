@@ -143,6 +143,22 @@ oyster_aq <- extract(oyster_mask, eez_crs, fun = 'notNA') %>%
   mutate(region = eez$rgn)
 ```
 
+```{r}
+tm_shape(eez_crs)+
+  tm_basemap('CartoDB.VoyagerNoLabels')+
+  tm_polygons(fill = 'rgn',
+              fill.scale = tm_scale(values = c('#E1DABD',
+                                              '#ABC798',
+                                              '#FFC4EB',
+                                              '#E6983F',
+                                              '#A0185A')))+
+tm_shape(oyster_mask)+
+  tm_raster()
+
+
+```
+
+
 references: 
 
 https://wildlife.ca.gov/Conservation/Marine/Kelp 0-40 m 
