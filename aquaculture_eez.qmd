@@ -33,7 +33,9 @@ pacman::p_load('tidyverse',
                'ggthemes',
                'colorRamps',
                'stars',
-               'terra')
+               'terra',
+               'basemaps',
+               'maptiles')
 ```
 
 In this project I am working with multiple datasets that may have different crs's. I am going to be using a function to check the crs's matching
@@ -47,7 +49,8 @@ In this project I am working with multiple datasets that may have different crs'
 ### Surface temperature
 ```{r}
 sst_2008 <- rast(here('data',
-                      'average_annual_sst_2008.tif'))
+                      'average_annual_sst_2008.tif')) 
+
 sst_2009 <- rast(here('data',
                       'average_annual_sst_2009.tif'))
 sst_2010 <- rast(here('data',
@@ -61,20 +64,31 @@ sst_2012 <- rast(here('data',
 ### Bathymetry 
 
 ```{r}
-bathy <- rast(here('data','depth.tif'))
+bathy <- rast(here('data','depth.tif')) %>% 
+  project("EPSG:4326")
 ```
 
 ### Exclusive Economic Zones
 ```{r}
 eez <- st_read(here('data',
-                    'wc_regions_clean.shp'), quiet = TRUE)
+                    'wc_regions_clean.shp'), quiet = TRUE) %>% 
+  st_transform("EPSG:4326")
         
+```
+
+### West coast shapefile
+```{r}
+coastline <- st_read(here('data',
+                    'tl_2019_us_coastline', 
+                    'tl_2019_us_coastline.shp'), quiet = TRUE)%>% 
+  st_transform("EPSG:4326")
 ```
 
 ## Surface temperature mean 
 ```{r}
 # Stacked raster
-stacked_sst <- c(sst_2008, sst_2009, sst_2010, sst_2011, sst_2012)
+stacked_sst <- c(sst_2008, sst_2009, sst_2010, sst_2011, sst_2012) %>% 
+  project("EPSG:4326")
 
 # Take mean of stacked raster and transfer from celcius to kelvin
 mean_sst <- mean(stacked_sst) - 273.15
@@ -119,46 +133,61 @@ We want to keep where both sst and depth equal one, so we can multiply the two r
 
 ```{r}
 suitable_cells <- sst_rcl * depth_rcl
-```
 
-Now we have suitable cells for the raster and can mask the eez
+suitable_cells[suitable_cells == 0] <- NA
 
-```{r}
-# First lets update the crs of the eez to match our suitable cells 
-eez_crs <- st_transform(eez, crs(suitable_cells))
-
-st_crs(eez_crs) == crs(suitable_cells)
-```
-And now we can mask the data with our eez
-
-```{r}
-oyster_mask <- mask(suitable_cells, eez_crs)
-
-oyster_mask[oyster_mask == 0] <- NA
-```
-
-
-```{r}
-oyster_aq <- extract(oyster_mask, eez_crs, fun = 'notNA') %>% 
-  mutate(region = eez$rgn)
+names(suitable_cells) <- 'Suitable'
 ```
 
 ```{r}
-tm_shape(eez_crs)+
-  tm_basemap('CartoDB.VoyagerNoLabels')+
-  tm_polygons(fill = 'rgn',
+extracted <- terra::extract(suitable_cells, eez, touches = TRUE)
+
+extracted_counts <- extracted %>% 
+  group_by(ID) %>% 
+  summarise(count = sum(Suitable, na.rm = TRUE))
+
+area_raster <- suitable_cells * cellSize(suitable_cells, unit = 'km')
+
+```
+
+```{r}
+# Extract suitable areas area
+area_extracted <- terra::extract(area_raster, 
+                                 eez, 
+                                 touches = TRUE) %>%  
+  group_by(ID) %>% 
+  summarise(suitable_area = sum(Suitable, na.rm = TRUE)) %>% 
+  mutate(rgn = eez$rgn)
+
+```
+
+
+```{r}
+region_suitable_area <- left_join(x = eez,
+                                  y = area_extracted, 
+                                  by = "rgn") %>% 
+  select(-ID)
+```
+
+```{r}
+ei_tiles = get_tiles(eez, provider = 'OpenStreetMap', crop = TRUE)
+
+
+tm_basemap('OpenStreetMap')
+tm_shape(region_suitable_area)+
+  tm_polygons(fill = 'suitable_area',
               fill.scale = tm_scale(values = c('#E1DABD',
                                               '#ABC798',
                                               '#FFC4EB',
                                               '#E6983F',
-                                              '#A0185A')))+
-tm_shape(oyster_mask)+
-  tm_raster()
+                                              '#A0185A')),
+              fill.legend = tm_legend( 'Suitable area'))
 
 
 ```
 
 
+```{r}
 references: 
 
 https://wildlife.ca.gov/Conservation/Marine/Kelp 0-40 m 
