@@ -5,7 +5,6 @@ date: '11/10/25'
 format: html
 editor: visual
 execute: 
-  cache: true
   warning: false
   message: false
 ---
@@ -35,7 +34,9 @@ pacman::p_load('tidyverse',
                'stars',
                'terra',
                'basemaps',
-               'maptiles')
+               'maptiles',
+               'kable',
+               'kableExtra')
 ```
 
 In this project I am working with multiple datasets that may have different crs's. I am going to be using a function to check the crs's matching
@@ -203,6 +204,15 @@ tm_shape(suitable_stars)+
 
 ```
 ```{r}
+region_suitable_area %>% 
+  st_drop_geometry() %>% 
+  select(-rgn_key, -rgn_id, -area_m2) %>% 
+kbl(col.names = c('Region', 'Total Area (Km2)', 'Suitable Area (Km2)')) %>% 
+  kable_classic(full_width = F, html_font = "Cambria") %>% 
+  footnote(number = paste('EEZ region suitable area for farming', species))
+```
+
+```{r}
 #' Map EEZ
 #' Make a map of a suitable area of a species in west coast EEZ's
 #' @param species 
@@ -215,10 +225,10 @@ tm_shape(suitable_stars)+
 #' Lower depth, positive integer of your deepest depth
 #' @param d_upr 
 #' Upper depth, positive integer of your shallowest depth
-#' @returns
-#' A Map of west coast eez's and a kable table?
+#' @returnsA list containing:
+#'   - $map   : tmap object
+#'   - $table : kable table
 #' @export
-#'
 #' @examples
 #' map_eez('Bull Kelp', 10, 18, 40, 0)
 map_eez <- function(species, t_lwr, t_upr, d_lower, d_upr){
@@ -290,9 +300,17 @@ tm_shape(st_as_stars(suitable_cells))+
             labels = 'Suitable Area'),
             col.legend = tm_legend(title = ""))
 
+table <- region_suitable_area %>% 
+  st_drop_geometry() %>% 
+  select(-rgn_key, -rgn_id, -area_m2) %>% 
+kbl(col.names = c('Region', 'Total Area (Km2)', 'Suitable Area (Km2)')) %>% 
+  kable_classic(full_width = F, html_font = "Cambria") %>% 
+  footnote(number = paste('EEZ region suitable area for farming', species))
 
-
-return(map)
+return(list(
+    map = map,
+    table = table
+  ))
 }
 
 ```
@@ -300,8 +318,17 @@ return(map)
 
 
 ```{r}
-map_eez('Bull Kelp', 10, 18, 40, 0)
+bull_kelp <- map_eez('Bull Kelp', 10, 18, 40, 0)
 ```
+
+```{r}
+bull_kelp$map
+```
+
+```{r}
+bull_kelp$table
+```
+
 
 references:
 
