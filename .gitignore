@@ -50,3 +50,7 @@ rsconnect/
 
 # Data Folder
 data/
+
+# Cache and files
+aquaculture_eez_cache/
+aquaculture_eez_files/
