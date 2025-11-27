@@ -10,7 +10,7 @@ execute:
 bibliography: references.bib
 ---
 
-In this project we will be examining ideal places for farming Oysters and Bull Kelp (Nereocystis luetkeana) in the U.S. Pacific West Coast Exclusive Economic Zone by:
+In this project we will be examining ideal places for farming Oysters and Bull Kelp (Nereocystis luetkeana) in the U.S. Pacific West Coast Exclusive Economic Zone (EEZ) by:
 
 -   Finding mean sea surface temperature (SST) 2008-2012
 
