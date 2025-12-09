@@ -245,6 +245,11 @@ rcl_temp <- matrix(c(-Inf, t_lwr, 0,
                      t_upr, Inf, 0), 
                    nrow =3,
                    byrow = TRUE)
+if (t_lwr < 0 ) {
+  stop("Temperature Negative, input positive")
+}
+
+
 
 # Reclassify 
 depth_rcl <- classify(depth_resampled, rcl_depth)
@@ -333,3 +338,6 @@ Call the table
 ```{r}
 bull_kelp$table
 ```
+
+### Bull Kelp discussion
+This map is very close to what I expected, with the highest area for possible farming being in Washington. Where it differences from what I would expect is in central and Southern California which is generally too warm to find Bull Kelp. This could be attributed to the use of mean surface temperature, instead of maximum. This is because when Bull Kelp propagate, their spores will not exit in temperatures above 18 degrees, so any temperature above that is going to cause them not to be able to recruit (and they don't have the luxury to move to cooler waters)[@weigel2023]. 

@@ -54,3 +54,7 @@ data/
 # Cache and files
 aquaculture_eez_cache/
 aquaculture_eez_files/
+
+#pdf files
+readme.pdf
+aquaculture_and_eez_submission.pdf
